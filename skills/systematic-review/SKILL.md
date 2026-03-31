@@ -54,11 +54,15 @@ The research question shapes everything that follows. A weak question produces a
 
 ### Deliverable
 
-A one-paragraph research question statement formatted as:
+A one-paragraph research question statement, formatted per framework:
 
+**PICO (systematic reviews):**
 > **Research Question:** In [Population], how does [Intervention] compared to [Comparison] affect [Outcome]?
 
-Plus 2-3 sub-questions if the review scope warrants them.
+**PCC (scoping reviews):**
+> **Research Question:** What is known about [Concept] in [Context] among [Population]?
+
+Plus 2-3 sub-questions if the review scope warrants them. If the user does not specify PICO or PCC, default to PCC for exploratory/scoping reviews and PICO for intervention-focused reviews.
 
 ---
 
@@ -130,17 +134,32 @@ Use 10 categories. Present as a table:
 
 A **Search Protocol Document** containing: research question, concept table, full Boolean search strings for each database, inclusion/exclusion criteria table, and a search log template.
 
+### Handoff to Phase 3
+
+After delivering the search protocol, **explicitly tell the user to run the searches** and return with results:
+
+> Your search protocol is ready. Next steps:
+> 1. Run each search string in its target database (Scopus, Web of Science, etc.)
+> 2. Export the results — BibTeX, RIS, or CSV format preferred; a list of titles and authors also works
+> 3. Record how many results each database returned (for the PRISMA flow diagram)
+> 4. Come back with the exported results and I'll start screening
+>
+> If you need help accessing databases, check your university library portal.
+
+Do NOT proceed to Phase 3 without user-provided search results. The skill cannot run database searches itself.
+
 ---
 
 ## Phase 3: Study Selection & Screening
 
-### Step 3.1: Simulate PRISMA flow
+### Step 3.1: Establish the starting pool
 
-Since we cannot run actual database searches, work with what the user provides:
+Work with what the user provides:
 
-- If user provides a list of articles: use those as the starting pool
-- If user provides search results (exported references): work from those
-- If user provides nothing: help them design the search (Phase 2) and ask them to run it
+- If user provides exported references (BibTeX, RIS, CSV): parse and use as the starting pool
+- If user provides a list of articles (titles, authors, years): use those
+- If user provides PDFs or summaries: extract metadata and use those
+- If user provides nothing: return to Phase 2 and deliver the search protocol with the handoff instructions above
 
 ### Step 3.2: Two-stage screening
 
@@ -234,6 +253,15 @@ Quality assessment results added to the review matrix, plus a summary table show
 
 ## Phase 6: Data Synthesis
 
+### Using Quality Scores from Phase 5
+
+The quality assessment results from Phase 5 must inform the synthesis — do not ignore them:
+
+- **High-quality studies** (Low risk of bias): treat as primary evidence. Lead with these findings.
+- **Medium-quality studies** (Some concerns): include but note the limitation. Use phrases like "though limited by [specific concern], this study found..."
+- **Low-quality studies** (High risk of bias): do NOT exclude silently — report their findings but weight them lower. Flag the quality concern explicitly: "However, this finding should be interpreted with caution due to [specific quality issue]."
+- **If all included studies are low quality**, state this as a review-level limitation in the Discussion section.
+
 ### Narrative synthesis (default for social sciences)
 
 Organize findings thematically rather than study-by-study. The synthesis should:
@@ -241,7 +269,7 @@ Organize findings thematically rather than study-by-study. The synthesis should:
 1. **Identify themes** that emerge across studies
 2. **Compare and contrast** findings within each theme
 3. **Note patterns** — where do studies agree? Where do they diverge?
-4. **Explain heterogeneity** — why might studies find different things?
+4. **Explain heterogeneity** — why might studies find different things? (Quality differences from Phase 5 may explain divergent findings)
 5. **Map gaps** — what hasn't been studied?
 
 ### Synthesis structure pattern
@@ -271,7 +299,18 @@ A structured synthesis narrative organized by themes, ready for integration into
 
 ## Phase 7: Manuscript Production
 
-This phase produces the final `.docx` manuscript. Read the docx skill patterns (the skill uses `docx-js` via Node.js) for technical implementation.
+This phase produces the final `.docx` manuscript.
+
+### Document Generation Strategy
+
+There are two pathways to produce the .docx. Use **Pandoc** (primary) when the user has Pandoc installed and wants automatic citation rendering. Use **docx-js** (fallback) when Pandoc is not available or when fine-grained formatting control is needed.
+
+| Pathway | When to use | How it works |
+|---------|-------------|--------------|
+| **Pandoc (primary)** | User has Pandoc + Zotero CSL-JSON | Write manuscript as `.md` with `[@citekey]` citations → Pandoc renders to `.docx` with formatted citations and reference list |
+| **docx-js (fallback)** | Pandoc not available, or user needs precise layout control | Build `.docx` directly via Node.js using the formatting specs below |
+
+If using Pandoc, the docx-js formatting specs below serve as **reference values** for a Pandoc reference template (if the user wants to match the same look).
 
 ### Manuscript structure (PRISMA 2020)
 
@@ -350,9 +389,9 @@ python scripts/recalc.py review_matrix.xlsx
 
 ---
 
-## Manuscript (.docx) Generation
+## Manuscript Formatting Reference (docx-js fallback)
 
-Use `docx-js` (Node.js) to create the manuscript. Install: `npm install -g docx`
+These specifications are used when generating .docx directly via docx-js (Node.js, `npm install -g docx`). When using Pandoc, these serve as reference values for matching the layout.
 
 ### Page setup
 ```javascript
@@ -393,9 +432,11 @@ Use the `/scholar:citation-helper` skill to search the researcher's Zotero libra
 
 | Phase | How Zotero Helps |
 |-------|-----------------|
+| **Phase 1: Research Question** | Search Zotero for existing systematic reviews on the topic to check novelty and refine scope |
 | **Phase 2: Search Strategy** | Search Zotero to see what the researcher already has on the topic — helps identify terms and scope |
 | **Phase 3: Screening** | Cross-reference candidate articles against the Zotero library to check which ones the researcher already has |
 | **Phase 4: Data Extraction** | Use CSL-JSON metadata for accurate author names, DOIs, journal names, volumes, and pages |
+| **Phase 5: Quality Assessment** | Look up methodology references (Cochrane RoB 2, CASP, NOS) for citing in the Methods section |
 | **Phase 6: Synthesis** | Search Zotero for additional context sources to compare findings against |
 | **Phase 7: Manuscript** | Use `[@citekey]` format for all citations; generate the reference list via Operation 4 |
 

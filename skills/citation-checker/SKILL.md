@@ -25,12 +25,16 @@ Use when the user asks you to:
 ## Input Requirements
 
 The skill needs at minimum:
-1. **The document to check** — a file path (`.docx`, `.md`, `.txt`, `.pdf`) or pasted text
+1. **The document to check** — a file path (`.md`, `.txt`, `.pdf`) or pasted text
 2. **The reference list** — either embedded in the document or provided separately
+
+If the document has **no reference list** (e.g., an early draft), the skill switches to reduced-scope mode: only Agent 5 (Completeness) runs, flagging uncited claims. Agents 1-4 are skipped since they require a reference list to work against. Tell the user: "No reference list found. Running completeness check only — add a reference list and re-run for full verification."
+
+If the input is a **`.docx` file**, convert it to markdown first using Pandoc (`pandoc input.docx -t markdown -o input.md`) before parsing. If Pandoc is not available, ask the user to export as `.md` or `.txt`.
 
 Optional:
 - **Source PDFs or articles** — for deep claim-vs-source verification
-- **Target citation style** — defaults to APA 7
+- **Target citation style** — defaults to APA 7 (the only style with full formatting rules; other styles get cross-reference and grounding checks but no formatting validation)
 
 ## Source Lookup Priority
 
@@ -48,6 +52,8 @@ Agents that verify references or suggest sources follow a **4-tier lookup chain*
    └── No match or not configured ↓
 3. WEB SEARCH: Search via WebSearch/WebFetch (fallback)
 ```
+
+**Graceful degradation:** If any tier is unavailable (Zotero library not configured, no local PDFs directory, NotebookLM not set up), skip it silently and proceed to the next tier. The skill works with web search alone — local sources improve quality but are not required.
 
 **Why this order:**
 - **Zotero first:** The CSL-JSON file has structured, authoritative metadata imported from publisher databases. Fastest to query (JSON search vs. PDF reading). Ideal for metadata verification (authors, DOI, volume, pages) and for confirming a reference is real.
@@ -75,8 +81,8 @@ The skill deploys **5 parallel verification agents**, each handling one class of
          ▼           ▼       ▼       ▼            ▼
     ┌─────────┐ ┌─────────┐ ┌────┐ ┌──────┐ ┌──────────┐
     │ Agent 1 │ │ Agent 2 │ │ A3 │ │  A4  │ │ Agent 5  │
-    │ Cross-  │ │ Format  │ │DOI │ │Claim │ │ Orphan & │
-    │ Ref     │ │ Check   │ │Val │ │Ground│ │ Ghost    │
+    │ Cross-  │ │ Format  │ │DOI │ │Claim │ │Complete- │
+    │ Ref     │ │ Check   │ │Val │ │Ground│ │ ness     │
     └─────────┘ └─────────┘ └────┘ └──────┘ └──────────┘
 ```
 
@@ -286,7 +292,64 @@ Launch all 5 agents in parallel using the Agent tool. Each agent receives:
 
 ### Step 3: Compile Report
 
-Merge all agent results into a structured verification report.
+Merge all agent results into a structured verification report using the merging rules below.
+
+## Report Merging Rules
+
+### Agent Ownership (no overlaps)
+
+Each issue type is owned by exactly one agent. If two agents flag the same item, the owner's finding takes precedence and the duplicate is dropped.
+
+| Issue Type | Owned By | NOT owned by |
+|---|---|---|
+| Ghost citations (cited but not in reference list) | Agent 1 | Agent 5 |
+| Orphan references (in reference list but never cited) | Agent 1 | Agent 5 |
+| Author name inconsistencies (in-text vs reference list) | Agent 1 | — |
+| APA 7 formatting errors (in-text and reference list) | Agent 2 | — |
+| DOI format errors (`doi:` vs `https://doi.org/`) | Agent 2 | Agent 3 |
+| DOI structural validity (`10.XXXX/YYYY` pattern) | Agent 3 | Agent 2 |
+| Publication existence verification | Agent 3 | — |
+| Claim-source grounding | Agent 4 | — |
+| Missing citations (uncited claims) | Agent 5 | — |
+| Citation deserts and over-reliance | Agent 5 | — |
+
+### Severity Mapping
+
+All agent findings map to a 3-tier report severity:
+
+| Report tier | Agent 1 | Agent 2 | Agent 3 | Agent 4 | Agent 5 |
+|---|---|---|---|---|---|
+| **Critical** (must fix) | Ghost citations (Error) | — | Likely Fabricated, Cannot Verify | Unsupported | — |
+| **Warning** (should fix) | Orphan references (Warning), name inconsistencies | Error, Warning | Uncertain | Questionable | Error (missing citation) |
+| **Style** (optional) | — | Style | — | — | Warning (citation desert, over-reliance) |
+
+### Confidence-to-Symbol Mapping (Reference-by-Reference Table)
+
+| Agent 3 status | Symbol | Agent 4 status | Symbol |
+|---|---|---|---|
+| Verified (Zotero/Local/Web) | ✓ | Grounded | ✓ |
+| Likely Valid | ✓ | Plausible | ~ |
+| Uncertain | ? | Questionable | ? |
+| Likely Fabricated | ✗ | Unsupported | ✗ |
+| Cannot Verify | — | Unverifiable | — |
+
+**Overall column:** ✓ Pass if all columns are ✓ or ~. ⚠ Check if any column is ? or —. ✗ Fail if any column is ✗.
+
+### Grounding Rollup
+
+Agent 4 works at the claim level, but the Reference-by-Reference table needs a per-reference status. Rollup rule: use the **worst claim assessment** for that reference. If a reference grounds 5 claims as "Grounded" but 1 as "Questionable", the reference gets "?" in the Grounding column.
+
+### Overall Health Calculation
+
+`health % = (references with ✓ Pass) / (total references) × 100`, rounded to nearest integer.
+
+### Deduplication
+
+If Agent 2 flags a DOI format issue and Agent 3 flags the same DOI as structurally invalid, keep **both** findings (they're different checks) but group them on the same row in the Reference-by-Reference table. Do not produce two separate report entries for the same DOI.
+
+### Agent 2 "Fix" Field
+
+Agent 2 provides a corrected version in its "Fix" column. This is for the **checker report only** — it shows the user what the correct format looks like. The checker does NOT apply fixes. Fixes are applied by `/scholar:citation-fixer`.
 
 ## Verification Report Format
 
@@ -299,41 +362,42 @@ The final output is a markdown report with this structure:
 - **Document:** [title/filename]
 - **Total in-text citations:** X
 - **Total references:** Y
-- **Issues found:** Z (N errors, M warnings, P style notes)
-- **Overall health:** ██████████░░ 82% (or similar visual indicator)
+- **Issues found:** Z (N critical, M warnings, P style notes)
+- **Overall health:** ██████████░░ 82%
 
 ## Critical Issues (must fix)
-[Sorted by severity — errors first]
 
-### Fabricated/Unverifiable References
+### Fabricated/Unverifiable References (from Agent 3)
 | # | Reference | Status | Details |
 |---|-----------|--------|---------|
 
-### Ghost Citations (cited but not in reference list)
+### Ghost Citations (from Agent 1 — cited but not in reference list)
 | # | Citation | Location | Suggested Fix |
 |---|----------|----------|---------------|
 
-### Unsupported Claims
-| # | Claim | Cited Source | Issue |
-|---|-------|-------------|-------|
+### Unsupported Claims (from Agent 4)
+| # | Claim | Cited Source | Issue | Action |
+|---|-------|-------------|-------|--------|
 
 ## Warnings (should fix)
-### APA 7 Formatting Errors
+
+### APA 7 Formatting Errors (from Agent 2)
 ...
-### Orphan References (in reference list but never cited)
+### Orphan References (from Agent 1 — in reference list but never cited)
 ...
-### Questionable Attributions
+### Questionable Attributions (from Agent 4)
 ...
 
 ## Style Notes (optional fixes)
-### Missing Citations
+
+### Missing Citations (from Agent 5)
 ...
-### Over-reliance on Single Sources
+### Over-reliance on Single Sources (from Agent 5)
 ...
 
 ## Reference-by-Reference Status
-| # | Reference | Cross-Ref | Format | DOI | Grounding | Overall |
-|---|-----------|-----------|--------|-----|-----------|---------|
+| # | Reference | Cross-Ref (A1) | Format (A2) | DOI (A3) | Grounding (A4) | Overall |
+|---|-----------|----------------|-------------|----------|----------------|---------|
 | 1 | Author (Year) | ✓ | ✓ | ✓ | ✓ | ✓ Pass |
 | 2 | Author (Year) | ✓ | ✗ | — | ? | ⚠ Check |
 ...
