@@ -51,16 +51,22 @@ pip3 install openpyxl
 
 ## Installation
 
-### Claude Code CLI
+### From GitHub (recommended)
+
+```bash
+claude plugin install --from github:mcmespinaa/scholar
+```
+
+Or clone manually:
+
+```bash
+git clone https://github.com/mcmespinaa/scholar.git ~/.claude/scholar
+```
+
+### Claude Code CLI (local)
 
 ```bash
 claude plugin install ./scholar
-```
-
-Or point to the plugin directory:
-
-```bash
-claude --plugin-dir ./scholar
 ```
 
 ### Claude Desktop (Cowork)
@@ -69,6 +75,10 @@ claude --plugin-dir ./scholar
 2. Open Claude Desktop > Cowork tab
 3. Click Customize > Browse plugins > Upload a custom plugin file
 4. Select `scholar.zip` > Install
+
+### First time? New to all of this?
+
+See **[SETUP.md](SETUP.md)** for a complete step-by-step guide that takes you from zero (no VS Code, no Node.js, nothing) to a fully working setup. Works on macOS, Windows, and Linux.
 
 ## Setup
 
