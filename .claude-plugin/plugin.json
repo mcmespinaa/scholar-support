@@ -1,0 +1,22 @@
+{
+  "name": "scholar",
+  "version": "1.0.0",
+  "description": "Full academic writing pipeline: draft essays, proposals, reports, and systematic reviews with APA 7 citations, then audit, fix, and grade — all in one plugin",
+  "author": {
+    "name": "Maria Cecilia Espina",
+    "url": "https://agentces.com"
+  },
+  "keywords": [
+    "academic-writing",
+    "apa7",
+    "citations",
+    "systematic-review",
+    "literature-review",
+    "research-proposal",
+    "grading",
+    "zotero",
+    "docx",
+    "university"
+  ],
+  "skills": "./skills/"
+}

@@ -1,0 +1,10 @@
+.env
+*.local.json
+.local.md
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/
+*.docx
+*.xlsx
+*_backup_*.md
