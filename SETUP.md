@@ -134,19 +134,19 @@ Open the **terminal inside VS Code**:
 Run:
 
 ```bash
-claude plugin install --from github:mcmespinaa/scholar
+claude plugin install --from github:mcmespinaa/scholar-support
 ```
 
 If that command doesn't work (plugin install syntax may vary by Claude Code version), use the manual method:
 
 ```bash
-git clone https://github.com/mcmespinaa/scholar.git ~/.claude/scholar
+git clone https://github.com/mcmespinaa/scholar-support.git ~/.claude/scholar
 ```
 
 On **Windows**, the path is different:
 
 ```powershell
-git clone https://github.com/mcmespinaa/scholar.git "$env:USERPROFILE\.claude\scholar"
+git clone https://github.com/mcmespinaa/scholar-support.git "$env:USERPROFILE\.claude\scholar"
 ```
 
 **Verify:** In the Claude Code panel in VS Code, type `/scholar:` and you should see 9 skills listed.
@@ -329,7 +329,7 @@ If your Windows username or folder path contains spaces (e.g., `C:\Users\John Sm
 ### Skills don't show up when typing /scholar:
 Make sure the plugin is installed. In VS Code's Claude panel, type `/` and look for skills starting with `scholar:`. If nothing shows, try reinstalling:
 ```bash
-claude plugin install --from github:mcmespinaa/scholar
+claude plugin install --from github:mcmespinaa/scholar-support
 ```
 
 ### Citation skills say "library not found"
@@ -351,6 +351,6 @@ source ~/.bashrc
 
 ## Getting Help
 
-- Plugin issues: https://github.com/mcmespinaa/scholar/issues
+- Plugin issues: https://github.com/mcmespinaa/scholar-support/issues
 - Claude Code docs: https://docs.anthropic.com/en/docs/claude-code
 - Zotero forums: https://forums.zotero.org/

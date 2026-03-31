@@ -54,13 +54,13 @@ pip3 install openpyxl
 ### From GitHub (recommended)
 
 ```bash
-claude plugin install --from github:mcmespinaa/scholar
+claude plugin install --from github:mcmespinaa/scholar-support
 ```
 
 Or clone manually:
 
 ```bash
-git clone https://github.com/mcmespinaa/scholar.git ~/.claude/scholar
+git clone https://github.com/mcmespinaa/scholar-support.git ~/.claude/scholar
 ```
 
 ### Claude Code CLI (local)
